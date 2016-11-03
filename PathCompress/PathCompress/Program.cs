@@ -31,8 +31,6 @@ namespace PathCompress
             if(input.Equals("y")) Environment.SetEnvironmentVariable("path", newPathVar, EnvironmentVariableTarget.Machine);
 
         }
-
-        //static Dictionary<string, int> getSubDirectories
     }
 
     public static class PathCompress
@@ -92,6 +90,13 @@ namespace PathCompress
             return table;
         }
 
+        /// <summary>
+        /// Cleans the path and then compresses it with symlinks until making a new sym link
+        /// does not shorten th epath by at least <paramref name="threshold"/>.
+        /// </summary>
+        /// <param name="pathVar"></param>
+        /// <param name="threshold"></param>
+        /// <returns></returns>
         public static string Compress(string pathVar, int threshold)
         {
             PrepareForCompression();
@@ -125,6 +130,12 @@ namespace PathCompress
             return retval;
         }
 
+        /// <summary>
+        /// Does everything that needs to be done before compression can begin.
+        /// -Makes the working directory if it doesn't already exist.
+        /// -Cleans up the working directory by removing all the old symlinks.
+        /// -Makes a backup of the path.
+        /// </summary>
         private static void PrepareForCompression()
         {
             if (!Directory.Exists(WORK_DIR))
