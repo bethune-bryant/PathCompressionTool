@@ -4,13 +4,14 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-/// <summary>
-/// Remove duplicate paths.
-/// Remove nonexistant paths.
-/// Use symlinks to shorten paths.
-/// </summary>
 namespace PathCompress
 {
+    /// <summary>
+    /// The goal of this program is to reduce the size of the windows path variable by:
+    /// -Removing duplicate paths.
+    /// -Removing nonexistent paths.
+    /// -Creating and using symlinks to shorten paths.
+    /// </summary>
     class Program
     {
         static void Main(string[] args)
@@ -55,14 +56,17 @@ namespace PathCompress
                 count++;
                 string nextSymLink = makeSymPath(count);
 
+                //Find the sub-path which, when replaced, would save the most characters.
                 KeyValuePair<string, int> max = CountDirectories(newPath).Where(pair => pair.Key.StartsWith("C:"))
                                                                          .OrderByDescending(pair => pair.Value * (pair.Key.Length - nextSymLink.Length))
                                                                          .First();
-                string symLinkTarget = new DirectoryInfo(max.Key).GetSymbolicLinkTarget();
 
+                //Make a symbolic link to the max sub-path.
+                string symLinkTarget = new DirectoryInfo(max.Key).GetSymbolicLinkTarget();
                 Extensions.CreateSymbolicLink(nextSymLink, symLinkTarget, Extensions.SymbolicLink.Directory);
                 Console.WriteLine(nextSymLink + " -> " + symLinkTarget);
 
+                //Use the new symlink to shorten all the paths that used the target path.
                 newPath = newPath.Split(new char[] { Path.PathSeparator }, StringSplitOptions.RemoveEmptyEntries)
                                  .Select(path => !path.StartsWith(max.Key) ? path : path.Replace(max.Key, nextSymLink))
                                  .Aggregate(new StringBuilder(), (current, next) => current.Append(current.Length > 0 ? ";" : "").Append(next))
