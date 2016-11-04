@@ -16,17 +16,7 @@ namespace PathCompress
     {
         static void Main(string[] args)
         {
-            string pathVar = Environment.GetEnvironmentVariable("path", EnvironmentVariableTarget.Machine);
-            string newPathVar = PathCompress.Compress(pathVar, 30);
-
-            Console.WriteLine(pathVar);
-            Console.WriteLine(newPathVar);
-            Console.WriteLine(pathVar.Length.ToString() + " -> " + newPathVar.Length.ToString());
-
-            Console.WriteLine("Write to path?(y/n)");
-            string input = Console.ReadLine();
-            if(input.Equals("y")) Environment.SetEnvironmentVariable("path", newPathVar, EnvironmentVariableTarget.Machine);
-
+            PathCompress.Compress(30);
         }
     }
 
@@ -41,14 +31,26 @@ namespace PathCompress
         /// <param name="pathVar"></param>
         /// <param name="threshold"></param>
         /// <returns></returns>
-        public static string Compress(string pathVar, int threshold)
+        public static void Compress(int threshold)
         {
-            PrepareForCompression();
+            string pathVar = Environment.GetEnvironmentVariable("path", EnvironmentVariableTarget.Machine);
 
-            string retval;
-            int count = 0;
+            if (!Directory.Exists(WORK_DIR))
+                Directory.CreateDirectory(WORK_DIR);
+
             string newPath = CleanPath(pathVar);
 
+            File.WriteAllText(WORK_DIR + Path.DirectorySeparatorChar + "backup_with_links" + DateTime.Now.Ticks.ToString() + ".txt", pathVar);
+            File.WriteAllText(WORK_DIR + Path.DirectorySeparatorChar + "backup_without_links" + DateTime.Now.Ticks.ToString() + ".txt", newPath);
+
+            int existCount = 0;
+            while (Directory.Exists(makeSymPath(existCount + 1)))
+            {
+                existCount++;
+            }
+
+            string retval;
+            int count = existCount;
             do
             {
                 retval = newPath;
@@ -74,30 +76,32 @@ namespace PathCompress
 
             } while (retval.Length - newPath.Length > threshold);
 
-            return retval;
-        }
+            Console.WriteLine(pathVar);
+            Console.WriteLine(retval);
+            Console.WriteLine(pathVar.Length.ToString() + " -> " + retval.Length.ToString());
 
-        /// <summary>
-        /// Does everything that needs to be done before compression can begin.
-        /// -Makes the working directory if it doesn't already exist.
-        /// -Cleans up the working directory by removing all the old symlinks.
-        /// -Makes a backup of the path.
-        /// </summary>
-        private static void PrepareForCompression()
-        {
-            if (!Directory.Exists(WORK_DIR))
-                Directory.CreateDirectory(WORK_DIR);
-            int count = 1;
-            while (Directory.Exists(makeSymPath(count)))
+            Console.WriteLine("Write to path?(y/n)");
+            string input = Console.ReadLine();
+            if (input.Equals("y"))
             {
-                Directory.Delete(makeSymPath(count));
-                count++;
+                Environment.SetEnvironmentVariable("path", retval, EnvironmentVariableTarget.Machine);
+                for(int i = 1; i <= existCount; i++)
+                {
+                    Directory.Delete(makeSymPath(i));
+                }
             }
-            File.WriteAllText(WORK_DIR + Path.DirectorySeparatorChar + "backup" + DateTime.Now.Ticks.ToString() + ".txt", Environment.GetEnvironmentVariable("path", EnvironmentVariableTarget.Machine));
+            else
+            {
+                for (int i = existCount+1; i <= count; i++)
+                {
+                    Directory.Delete(makeSymPath(i));
+                }
+            }
         }
 
         /// <summary>
         /// This function removes duplicate entries and nonexistant entries from the path.
+        /// This function also resolves all symlinks in the paths.
         /// </summary>
         /// <param name="pathVar">The current contents of the PATH</param>
         /// <returns>Cleaned up path.</returns>
