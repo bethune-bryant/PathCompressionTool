@@ -42,21 +42,13 @@ namespace PathCompress
 
             File.WriteAllText(WORK_DIR + Path.DirectorySeparatorChar + "backup_with_links" + DateTime.Now.Ticks.ToString() + ".txt", pathVar);
             File.WriteAllText(WORK_DIR + Path.DirectorySeparatorChar + "backup_without_links" + DateTime.Now.Ticks.ToString() + ".txt", newPath);
-
-            int existCount = 0;
-            while (Directory.Exists(makeSymPath(existCount + 1)))
-            {
-                existCount++;
-            }
-
+            
             string retval;
-            int count = existCount;
             do
             {
                 retval = newPath;
-
-                count++;
-                string nextSymLink = makeSymPath(count);
+                
+                string nextSymLink = nextSymPath();
 
                 //Find the sub-path which, when replaced, would save the most characters.
                 KeyValuePair<string, int> max = CountDirectories(newPath).Where(pair => pair.Key.StartsWith("C:"))
@@ -85,18 +77,34 @@ namespace PathCompress
             if (input.Equals("y"))
             {
                 Environment.SetEnvironmentVariable("path", retval, EnvironmentVariableTarget.Machine);
-                for(int i = 1; i <= existCount; i++)
-                {
-                    Directory.Delete(makeSymPath(i));
-                }
             }
-            else
+
+            //Delete all the symlinks that are not used by whatever is stored in the path variable.
+            string finalPath = Environment.GetEnvironmentVariable("path", EnvironmentVariableTarget.Machine);
+            foreach(string directory in Directory.GetDirectories(WORK_DIR))
             {
-                for (int i = existCount+1; i <= count; i++)
+                int temp;
+                bool isNum = Int32.TryParse(Path.GetFileName(directory), out temp);
+                bool isUsed = finalPath.Split(new char[] { Path.PathSeparator }, StringSplitOptions.RemoveEmptyEntries)
+                                       .Where(path => path.StartsWith(directory))
+                                       .Count() > 0;
+                if(isNum && !isUsed)
                 {
-                    Directory.Delete(makeSymPath(i));
+                    Directory.Delete(directory);
                 }
+
             }
+        }
+
+        /// <summary>
+        /// This function finds and returns the next valid symlink path.
+        /// </summary>
+        /// <returns></returns>
+        private static string nextSymPath()
+        {
+            int count = 1;
+            while (Directory.Exists(makeSymPath(count))) count++;
+            return makeSymPath(count);
         }
 
         /// <summary>
